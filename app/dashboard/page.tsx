@@ -1,8 +1,12 @@
-import { UserButton } from '@clerk/nextjs'
+import ProjectList from '@/components/custom/dashboard/ProjectList'
+import WelcomeBanner from '@/components/custom/dashboard/WelcomeBanner'
 
 function DashboardPage() {
   return (
-    <div><UserButton/></div>
+    <div>
+      <WelcomeBanner />
+      <ProjectList />
+    </div>
   )
 }
 

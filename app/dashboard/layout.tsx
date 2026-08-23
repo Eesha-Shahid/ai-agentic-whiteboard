@@ -1,6 +1,6 @@
 import AppHeader from "@/components/custom/dashboard/AppHeader";
 import { AppSideBar } from "@/components/custom/dashboard/AppSideBar";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import React from "react";
 
 export default function DashboardLayout({
@@ -13,7 +13,9 @@ export default function DashboardLayout({
       <AppSideBar />
       <div className="flex flex-1 flex-col">
         <AppHeader />
-        {children}
+        <div className="p-5">
+          {children}
+        </div>
       </div>
     </SidebarProvider>
   )

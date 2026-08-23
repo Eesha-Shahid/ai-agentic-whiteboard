@@ -65,10 +65,12 @@ export function AppSideBar() {
           <h2 className="text-sm flex justify-between mb-1">2 files created <span>total 3</span></h2>
           <Progress value={66} className="h-2 mt-2" />
         </div>
-        <div className="flex items-center gap-2 p-4 border rounded-md">
-          <Image className="rounded-full" src={user?.imageUrl ?? ''} alt="User Image" height={40} width={40}/>
-          <h2>{user?.firstName} {user?.lastName}</h2>
-        </div>
+        {user && 
+          <div className="flex items-center gap-2 p-4 border rounded-md">
+            <Image className="rounded-full" src={user?.imageUrl ?? ''} alt="User Image" height={40} width={40}/>
+            <h2>{user?.firstName} {user?.lastName}</h2>
+          </div>
+        }
       </SidebarFooter>
     </Sidebar>
   );
