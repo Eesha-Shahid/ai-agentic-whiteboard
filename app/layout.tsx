@@ -1,6 +1,7 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import "./globals.css";
 import type { Metadata } from "next";
+import Providers from './providers';
 
 export const metadata: Metadata = {
   title: "Next.js Premium Startup Boilerplate",
@@ -14,9 +15,11 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body style={{ margin: 0, padding: 0 }}>
-          {children}
+          <Providers>
+            {children}
+          </Providers>
         </body>
       </html>
     </ClerkProvider>
