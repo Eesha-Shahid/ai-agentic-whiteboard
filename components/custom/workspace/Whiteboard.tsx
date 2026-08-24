@@ -15,11 +15,14 @@ import {
   Minus,
   MousePointer2,
   Pencil,
+  Sparkles,
   Square,
   Type,
 } from "lucide-react";
 import { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import FloatingProperties from "./FloatingProperties";
+import { Button } from "@/components/ui/button";
+import AIFloatingSidebar from "./AIFloatingSidebar";
 
 const tools = [
   { name: "selection", icon: MousePointer2, color: "text-purple-600" },
@@ -45,17 +48,18 @@ const bumpElement = (el: any, patch: Record<string, any>) => ({
 });
 
 function Whiteboard() {
+  const { projectid } = useParams();
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
   const saveTimeRef = useRef<any>(null);
-  const { projectid } = useParams();
+  const selectedElementRef = useRef<any>(null);
+  const lockToggleRef = useRef(false);
+
   const [activeTool, setActiveTool] = useState("selection");
   const [selectedElement, setSelectedElement] = useState<any>(null);
   const [canvasState, setCanvasState] = useState<any>(null);
   const [lockedElements, setLockedElements] = useState<any[]>([]);
-
-  const selectedElementRef = useRef<any>(null);
-  const lockToggleRef = useRef(false);
+  const [showAISidebar, setShowAISidebar] = useState<boolean>(true);
 
   useEffect(() => {
     selectedElementRef.current = selectedElement;
@@ -79,7 +83,7 @@ function Whiteboard() {
       } else if (lockToggleRef.current && selectedElementRef.current) {
         // Locking deselects the element in Excalidraw — recover it by id so our panel stays open
         const stillExists = elements.find(
-          (el) => el.id === selectedElementRef.current.id
+          (el) => el.id === selectedElementRef.current.id,
         );
         setSelectedElement(stillExists ?? null);
         lockToggleRef.current = false;
@@ -96,13 +100,13 @@ function Whiteboard() {
         // })
       }, 10000);
     },
-    []
+    [],
   );
 
   const SaveCanvasChanges = async (
     elements: readonly any[],
     appState: any,
-    files: any
+    files: any,
   ) => {
     const result = await axios.post("/api/whiteboard", {
       projectId: projectid,
@@ -124,7 +128,7 @@ function Whiteboard() {
     if (!excalidrawAPI || !selectedElement) return;
     const elements = excalidrawAPI.getSceneElements();
     const updated = elements.map((el) =>
-      el.id === selectedElement.id ? bumpElement(el, patch) : el
+      el.id === selectedElement.id ? bumpElement(el, patch) : el,
     );
     // @ts-ignore
     excalidrawAPI.updateScene({ elements: updated });
@@ -263,6 +267,14 @@ function Whiteboard() {
             </button>
           );
         })}
+
+      <div className="absolute right-15 bottom-3 z-50">
+        <Button size="lg" onClick={() => setShowAISidebar(!showAISidebar)}>
+          <Sparkles /> AI
+        </Button>
+      </div>
+
+      {showAISidebar && <AIFloatingSidebar excalidrawApi={excalidrawAPI} />}
     </div>
   );
 }
