@@ -1,3 +1,4 @@
+import React from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import axios from "axios";
@@ -20,9 +21,14 @@ import {
   Type,
 } from "lucide-react";
 import { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import FloatingProperties from "./FloatingProperties";
 import { Button } from "@/components/ui/button";
 import AIFloatingSidebar from "./AIFloatingSidebar";
+import FloatingActionBar from "./FloatingActionBar";
+
+import { renderToStaticMarkup } from "react-dom/server";
+import type { LucideIcon } from "lucide-react";
 
 const tools = [
   { name: "selection", icon: MousePointer2, color: "text-purple-600" },
@@ -37,6 +43,15 @@ const tools = [
   { name: "image", icon: Image, color: "text-green-500" },
   { name: "eraser", icon: Eraser, color: "text-rose-500" },
 ];
+
+const NOTE_STYLES: Record<
+  "sticky" | "glass" | "task",
+  { bg: string; border: string; badgeBg: string }
+> = {
+  sticky: { bg: "#FFF7D6", border: "#F5C451", badgeBg: "#FFE6A3" },
+  glass: { bg: "#EFF6FF", border: "#93C5FD", badgeBg: "#DBEAFE" },
+  task: { bg: "#ECFDF5", border: "#6EE7B7", badgeBg: "#D1FAE5" },
+};
 
 // Bumps Excalidraw's internal versioning so external mutations are actually accepted
 const bumpElement = (el: any, patch: Record<string, any>) => ({
@@ -222,8 +237,164 @@ function Whiteboard({ onApiReady }: Props) {
 
   const floatingPosition = getFloatingPosition();
 
+  const getNextPlacementPosition = (width: number, height: number) => {
+    if (!excalidrawAPI) return { x: 200, y: 200 };
+
+    const elements = excalidrawAPI
+      .getSceneElements()
+      .filter((el) => !el.isDeleted);
+
+    if (elements.length === 0) {
+      return { x: 200, y: 200 };
+    }
+
+    // Place to the right of whatever's currently furthest right on the canvas
+    const maxRight = Math.max(...elements.map((el) => el.x + el.width));
+    const avgTop =
+      elements.reduce((sum, el) => sum + el.y, 0) / elements.length;
+
+    return {
+      x: maxRight + 40, // gap between the previous item and the new one
+      y: avgTop,
+    };
+  };
+
+  const addStickyElement = (type: "sticky" | "glass" | "task") => {
+    if (!excalidrawAPI) return;
+
+    const { bg, border, badgeBg } = NOTE_STYLES[type];
+    const width = 260;
+    const height = 220;
+    const position = getNextPlacementPosition(width, height);
+
+    const noteId = `note-${Date.now()}`;
+
+    const noteElements = convertToExcalidrawElements([
+      {
+        id: noteId,
+        type: "rectangle",
+        x: position.x,
+        y: position.y,
+        width,
+        height,
+        backgroundColor: bg,
+        strokeColor: border,
+        fillStyle: "solid",
+        strokeWidth: 1.5,
+        roughness: 0,
+        roundness: { type: 3 },
+      },
+      {
+        id: `${noteId}-badge`,
+        type: "rectangle",
+        x: position.x + 24,
+        y: position.y + 24,
+        width: 90,
+        height: 32,
+        backgroundColor: badgeBg,
+        strokeColor: "transparent",
+        fillStyle: "solid",
+        roughness: 0,
+        roundness: { type: 3 },
+      },
+    ]);
+
+    const currentElements = excalidrawAPI.getSceneElements();
+    excalidrawAPI.updateScene({
+      elements: [...currentElements, ...noteElements],
+    });
+  };
+
+  const addEmojiElement = (emoji: string) => {
+    if (!excalidrawAPI) return;
+
+    const position = getNextPlacementPosition(60, 60); // rough emoji footprint
+
+    const emojiElements = convertToExcalidrawElements([
+      {
+        id: `emoji-${Date.now()}`,
+        type: "text",
+        x: position.x,
+        y: position.y,
+        text: emoji,
+        fontSize: 48,
+      },
+    ]);
+
+    const currentElements = excalidrawAPI.getSceneElements();
+    excalidrawAPI.updateScene({
+      elements: [...currentElements, ...emojiElements],
+    });
+  };
+
+  const addIconElement = async (
+    iconName: string,
+    IconComponent: LucideIcon,
+    color: string,
+  ) => {
+    if (!excalidrawAPI) return;
+
+    const size = 64;
+
+    const innerSvg = renderToStaticMarkup(
+      React.createElement(IconComponent, {
+        size,
+        strokeWidth: 2,
+        color,
+      }),
+    );
+
+    const innerContentMatch = innerSvg.match(/<svg[^>]*>([\s\S]*)<\/svg>/);
+    const innerContent = innerContentMatch ? innerContentMatch[1] : "";
+
+    const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${innerContent}</svg>`;
+
+    // Base64-encode via TextEncoder first, so btoa never chokes on
+    // any character outside its Latin1-only range
+    const utf8ToBase64 = (str: string) => {
+      const bytes = new TextEncoder().encode(str);
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return btoa(binary);
+    };
+
+    const dataUrl = `data:image/svg+xml;base64,${utf8ToBase64(fullSvg)}`;
+
+    const fileId = `icon-${iconName}-${Date.now()}` as any;
+    const position = getNextPlacementPosition(size, size);
+
+    const imageElements = convertToExcalidrawElements([
+      {
+        id: `icon-el-${Date.now()}`,
+        type: "image",
+        x: position.x,
+        y: position.y,
+        width: size,
+        height: size,
+        fileId,
+      },
+    ]);
+
+    const currentElements = excalidrawAPI.getSceneElements();
+
+    excalidrawAPI.addFiles([
+      {
+        id: fileId,
+        dataURL: dataUrl as any,
+        mimeType: "image/svg+xml",
+        created: Date.now(),
+      },
+    ]);
+
+    excalidrawAPI.updateScene({
+      elements: [...currentElements, ...imageElements],
+    });
+  };
+
   return (
-    <div style={{ height: "90vh" }}>
+    <div style={{ height: "93vh" }}>
       <Excalidraw
         // @ts-ignore
         excalidrawAPI={handleExcalidrawAPI}
@@ -276,13 +447,30 @@ function Whiteboard({ onApiReady }: Props) {
           );
         })}
 
-      <div className="absolute right-15 bottom-3 z-50">
-        <Button className="cursor-pointer" size="lg" onClick={() => setShowAISidebar(!showAISidebar)}>
+      <div className="absolute right-15 bottom-6 z-50">
+        <Button
+          className="cursor-pointer"
+          size="lg"
+          onClick={() => setShowAISidebar(!showAISidebar)}
+        >
           <Sparkles /> AI
         </Button>
       </div>
 
-      {showAISidebar && <AIFloatingSidebar excalidrawApi={excalidrawAPI} onClose={() => setShowAISidebar(!showAISidebar)} />}
+      <FloatingActionBar
+        onAddNote={addStickyElement}
+        onAddEmoji={addEmojiElement}
+        onAddIcon={addIconElement}
+        showAISidebar={showAISidebar}
+        onToggleAI={() => setShowAISidebar((prev) => !prev)}
+      />
+
+      {showAISidebar && (
+        <AIFloatingSidebar
+          excalidrawApi={excalidrawAPI}
+          onClose={() => setShowAISidebar(!showAISidebar)}
+        />
+      )}
     </div>
   );
 }
