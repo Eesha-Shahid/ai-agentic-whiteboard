@@ -14,11 +14,13 @@ import {
   Sparkles,
   WandSparkles,
   Workflow,
+  X,
 } from "lucide-react";
 import axios from "axios";
 
 type Props = {
   excalidrawApi: ExcalidrawImperativeAPI | null;
+  onClose: () => void;
 };
 
 const AiTools = [
@@ -196,7 +198,7 @@ const AI_PLACEHOLDER_IDS = {
   skeleton3: "ai-placeholder-skeleton-3",
 };
 
-function AIFloatingSidebar({ excalidrawApi }: Props) {
+function AIFloatingSidebar({ excalidrawApi, onClose }: Props) {
   const [selectedTool, setSelectedTool] = useState("Generate Diagrams");
   const [isGenerating, setIsGenerating] = useState(false);
   const [userInput, setUserInput] = useState("");
@@ -603,7 +605,7 @@ function AIFloatingSidebar({ excalidrawApi }: Props) {
     <>
       <div className="absolute right-6 bottom-20 z-[100] w-[420px] overflow-hidden rounded-2xl border border-gray-200/80 bg-white/95 backdrop-blur-xl shadow-2xl">
         <div className="border-b border-gray-100 bg-gradient-to-br from-violet-50/80 via-white to-blue-50/70 px-5 py-4">
-          <div className="flex justify-between items-start">
+          <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-blue-600 text-white shadow-sm">
                 <Sparkles />
@@ -617,6 +619,9 @@ function AIFloatingSidebar({ excalidrawApi }: Props) {
                 </p>
               </div>
             </div>
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 cursor-pointer">
+              <X size={17} strokeWidth={2} />
+            </button>
           </div>
         </div>
 

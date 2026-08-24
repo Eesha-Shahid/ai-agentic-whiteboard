@@ -47,7 +47,11 @@ const bumpElement = (el: any, patch: Record<string, any>) => ({
   updated: Date.now(),
 });
 
-function Whiteboard() {
+type Props = {
+  onApiReady: (api: ExcalidrawImperativeAPI) => void;
+};
+
+function Whiteboard({ onApiReady }: Props) {
   const { projectid } = useParams();
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
@@ -59,15 +63,19 @@ function Whiteboard() {
   const [selectedElement, setSelectedElement] = useState<any>(null);
   const [canvasState, setCanvasState] = useState<any>(null);
   const [lockedElements, setLockedElements] = useState<any[]>([]);
-  const [showAISidebar, setShowAISidebar] = useState<boolean>(true);
+  const [showAISidebar, setShowAISidebar] = useState<boolean>(false);
 
   useEffect(() => {
     selectedElementRef.current = selectedElement;
   }, [selectedElement]);
 
-  const handleExcalidrawAPI = useCallback((api: ExcalidrawImperativeAPI) => {
-    setExcalidrawAPI(api);
-  }, []);
+  const handleExcalidrawAPI = useCallback(
+    (api: ExcalidrawImperativeAPI) => {
+      setExcalidrawAPI(api);
+      onApiReady(api);
+    },
+    [onApiReady],
+  );
 
   const handleCanvasChange = useCallback(
     (elements: readonly any[], appState: any, files: any) => {
@@ -269,12 +277,12 @@ function Whiteboard() {
         })}
 
       <div className="absolute right-15 bottom-3 z-50">
-        <Button size="lg" onClick={() => setShowAISidebar(!showAISidebar)}>
+        <Button className="cursor-pointer" size="lg" onClick={() => setShowAISidebar(!showAISidebar)}>
           <Sparkles /> AI
         </Button>
       </div>
 
-      {showAISidebar && <AIFloatingSidebar excalidrawApi={excalidrawAPI} />}
+      {showAISidebar && <AIFloatingSidebar excalidrawApi={excalidrawAPI} onClose={() => setShowAISidebar(!showAISidebar)} />}
     </div>
   );
 }
