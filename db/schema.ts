@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -13,6 +13,7 @@ export const projects = pgTable('projects', {
   projectId: varchar('projectId').notNull().unique(),
   projectName: varchar('projectName').notNull(),
   userEmail: varchar('userEmail').notNull(),
+  archived: boolean('archived').default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
@@ -22,6 +23,7 @@ export const WhiteboardData = pgTable("whiteboardData", {
   elements: jsonb('elements'),
   appState: jsonb('appState'),
   files: jsonb('files'),
+  previewImage: text('previewImage'),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
 

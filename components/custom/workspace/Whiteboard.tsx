@@ -1,5 +1,5 @@
 import React from "react";
-import { Excalidraw } from "@excalidraw/excalidraw";
+import { Excalidraw, exportToBlob } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import axios from "axios";
 import { useParams } from "next/navigation";
@@ -153,11 +153,13 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
   ) => {
     setIsSaving(true);
     try {
+      const base64ImagePreview = await generatePreviewBase64();
       await axios.post("/api/whiteboard", {
         projectId: projectid,
         elements,
         appState,
         files,
+        base64ImagePreview
       });
       toast.add({ type: "success", title: "Changes Saved" });
     } catch (error) {
@@ -172,6 +174,47 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
       setIsSaving(false);
     }
   };
+
+  const generatePreviewBase64 = async () => {
+    if (!excalidrawAPI) return null
+
+    const elements = excalidrawAPI.getSceneElements()
+
+    if (!elements.length) return null
+
+    const appState = excalidrawAPI.getAppState()
+    const files = excalidrawAPI.getFiles()
+
+    const blob = await exportToBlob({
+      elements,
+      appState: {
+        ...appState,
+        exportBackground: true,
+        exportWithDarkMode: false
+      },
+      files,
+      mimeType: "image/webp",
+      quality: 0.5,
+      getDimensions: () => ({
+        width: 400,
+        height: 225,
+        scale: 1
+      })
+    })
+
+    return await blobToBase64(blob)
+  }
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+
+      reader.readAsDataURL(blob)
+    })
+  }
 
   const changeTool = (tool: any) => {
     if (!excalidrawAPI) return;
