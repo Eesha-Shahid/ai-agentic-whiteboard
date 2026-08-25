@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const { projectId, archived } = await req.json();
+  const { projectId, archived, isPublic, publicRole } = await req.json();
   const user = await currentUser();
   const userEmail = user?.primaryEmailAddress?.emailAddress;
 
@@ -119,9 +119,20 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
+  // Only touch fields that were actually sent, so a call to toggle
+  // archived doesn't accidentally reset isPublic/publicRole, and vice versa
+  const updates: Record<string, any> = {};
+  if (typeof archived === "boolean") updates.archived = archived;
+  if (typeof isPublic === "boolean") updates.isPublic = isPublic;
+  if (typeof publicRole === "string") updates.publicRole = publicRole;
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
+
   const result = await db
     .update(projects)
-    .set({ archived })
+    .set(updates)
     .where(
       and(eq(projects.projectId, projectId), eq(projects.userEmail, userEmail)),
     )

@@ -9,6 +9,7 @@ import axios from "axios";
 import { useParams } from "next/navigation";
 import { toast } from "@/components/ui/toast";
 import ExportDialog from "@/components/custom/workspace/ExportDialog";
+import ShareDialog from "@/components/custom/workspace/SharedDialog";
 
 const Whiteboard = dynamic(
   () => import("@/components/custom/workspace/Whiteboard"),
@@ -57,6 +58,7 @@ function Workspace() {
   const [isSaving, setIsSaving] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
     setApi(api);
@@ -78,6 +80,12 @@ function Workspace() {
   const openAI = () => {
     setExportOpen(false);
     setAiOpen((prev) => !prev);
+  };
+
+  const openShare = () => {
+    setAiOpen(false);
+    setExportOpen(false);
+    setShareOpen(true);
   };
 
   useEffect(() => {
@@ -117,6 +125,7 @@ function Workspace() {
         onOpenExport={openExport}
         onSave={() => manualSave?.()}
         isSaving={isSaving}
+        onOpenShare={openShare}
       />
       {activeTab === "whiteboard" ? (
         <Whiteboard
@@ -129,6 +138,11 @@ function Workspace() {
       ) : (
         <SmartDoc />
       )}
+      <ShareDialog
+        projectId={projectid as string}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+      />
       <ExportDialog
         excalidrawApi={api}
         projectName={projectName}

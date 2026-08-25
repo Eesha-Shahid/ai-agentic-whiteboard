@@ -14,7 +14,18 @@ export const projects = pgTable('projects', {
   projectName: varchar('projectName').notNull(),
   userEmail: varchar('userEmail').notNull(),
   archived: boolean('archived').default(false).notNull(),
+  isPublic: boolean('isPublic').default(false).notNull(),
+  publicRole: varchar('publicRole').default('view'), // "view" | "edit"
   createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
+export const collaborators = pgTable('collaborators', {
+  id: serial("id").primaryKey(),
+  projectId: varchar('projectId').notNull().references(() => projects.projectId),
+  userEmail: varchar('userEmail').notNull(),
+  role: varchar('role').default('viewer').notNull(), // "editor" | "viewer"
+  invitedBy: varchar('invitedBy').notNull(),
+  invitedAt: timestamp("invited_at").defaultNow().notNull(),
 })
 
 export const WhiteboardData = pgTable("whiteboardData", {

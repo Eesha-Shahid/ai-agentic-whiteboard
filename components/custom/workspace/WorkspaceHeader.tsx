@@ -8,6 +8,7 @@ type Props = {
   projectName: string;
   selectedTab: (value: "whiteboard" | "doc") => void;
   onOpenExport: () => void;
+  onOpenShare: () => void;
   onSave: () => void;
   isSaving: boolean;
 };
@@ -16,6 +17,7 @@ function WorkspaceHeader({
   projectName,
   selectedTab,
   onOpenExport,
+  onOpenShare,
   onSave,
   isSaving,
 }: Props) {
@@ -74,13 +76,10 @@ function WorkspaceHeader({
             </>
           )}
         </Button>
-        <Button
-          variant="outline"
-          className="cursor-pointer gap-1.5 border-gray-200"
-        >
-          <Share size={15} />
-          Share
-        </Button>
+        <Button onClick={onOpenShare} variant="outline" className="cursor-pointer gap-1.5 border-gray-200">
+  <Share size={15} />
+  Share
+</Button>
         <Button
           onClick={onOpenExport}
           variant="outline"
