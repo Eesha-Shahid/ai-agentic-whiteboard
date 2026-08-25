@@ -8,6 +8,7 @@ import { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import axios from "axios";
 import { useParams } from "next/navigation";
 import { toast } from "@/components/ui/toast";
+import ExportDialog from "@/components/custom/workspace/ExportDialog";
 
 const Whiteboard = dynamic(
   () => import("@/components/custom/workspace/Whiteboard"),
@@ -54,6 +55,8 @@ function Workspace() {
   const [projectName, setProjectName] = useState<string>("");
   const [manualSave, setManualSave] = useState<(() => void) | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
     setApi(api);
@@ -66,6 +69,16 @@ function Workspace() {
   const handleSavingChange = useCallback((saving: boolean) => {
     setIsSaving(saving);
   }, []);
+
+  const openExport = () => {
+    setAiOpen(false);
+    setExportOpen(true);
+  };
+
+  const openAI = () => {
+    setExportOpen(false);
+    setAiOpen((prev) => !prev);
+  };
 
   useEffect(() => {
     projectid && api && GetWhiteboardData();
@@ -96,37 +109,12 @@ function Workspace() {
     }
   };
 
-  const handleExportImage = async () => {
-    if (!api) return;
-
-    // Loaded lazily so it never touches `window` during server render
-    const { exportToBlob } = await import("@excalidraw/excalidraw");
-
-    const blob = await exportToBlob({
-      elements: api.getSceneElements(),
-      appState: {
-        ...api.getAppState(),
-        exportBackground: true,
-      },
-      files: api.getFiles(),
-      mimeType: "image/png",
-      quality: 1,
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "whiteboard.png";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div>
       <WorkspaceHeader
         projectName={projectName}
         selectedTab={(value) => setActiveTab(value)}
-        onExport={() => handleExportImage()}
+        onOpenExport={openExport}
         onSave={() => manualSave?.()}
         isSaving={isSaving}
       />
@@ -135,10 +123,18 @@ function Workspace() {
           onApiReady={handleApiReady}
           onSaveReady={handleSaveReady}
           onSavingChange={handleSavingChange}
+          showAISidebar={aiOpen}
+          onToggleAI={openAI}
         />
       ) : (
         <SmartDoc />
       )}
+      <ExportDialog
+        excalidrawApi={api}
+        projectName={projectName}
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+      />
     </div>
   );
 }

@@ -11,12 +11,12 @@ import {
   Diamond,
   Eraser,
   Hand,
+  HelpCircle,
   Image,
   Lock,
   Minus,
   MousePointer2,
   Pencil,
-  Sparkles,
   Square,
   Type,
 } from "lucide-react";
@@ -24,33 +24,148 @@ import { toast } from "@/components/ui/toast";
 import { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import FloatingProperties from "./FloatingProperties";
-import { Button } from "@/components/ui/button";
 import AIFloatingSidebar from "./AIFloatingSidebar";
 import FloatingActionBar from "./FloatingActionBar";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { LucideIcon } from "lucide-react";
+import { createPortal } from "react-dom";
+import HelpDialog from "./HelpDialog";
 
-const tools = [
-  { name: "selection", icon: MousePointer2, color: "text-purple-600" },
-  { name: "hand", icon: Hand, color: "text-cyan-500" },
-  { name: "rectangle", icon: Square, color: "text-blue-500" },
-  { name: "diamond", icon: Diamond, color: "text-emerald-500" },
-  { name: "ellipse", icon: Circle, color: "text-amber-500" },
-  { name: "arrow", icon: ArrowRight, color: "text-violet-500" },
-  { name: "line", icon: Minus, color: "text-pink-500" },
-  { name: "freedraw", icon: Pencil, color: "text-orange-500" },
-  { name: "text", icon: Type, color: "text-indigo-500" },
-  { name: "image", icon: Image, color: "text-green-500" },
-  { name: "eraser", icon: Eraser, color: "text-rose-500" },
+const TOOL_GROUPS = [
+  {
+    label: "Navigate",
+    tools: [
+      {
+        name: "selection",
+        icon: MousePointer2,
+        color: "#8B5CF6",
+        label: "Select",
+        shortcut: "V",
+      },
+      {
+        name: "hand",
+        icon: Hand,
+        color: "#06B6D4",
+        label: "Pan",
+        shortcut: "H",
+      },
+    ],
+  },
+  {
+    label: "Shapes",
+    tools: [
+      {
+        name: "rectangle",
+        icon: Square,
+        color: "#3B82F6",
+        label: "Rectangle",
+        shortcut: "R",
+      },
+      {
+        name: "diamond",
+        icon: Diamond,
+        color: "#10B981",
+        label: "Diamond",
+        shortcut: "D",
+      },
+      {
+        name: "ellipse",
+        icon: Circle,
+        color: "#F59E0B",
+        label: "Ellipse",
+        shortcut: "O",
+      },
+    ],
+  },
+  {
+    label: "Draw",
+    tools: [
+      {
+        name: "arrow",
+        icon: ArrowRight,
+        color: "#8B5CF6",
+        label: "Arrow",
+        shortcut: "A",
+      },
+      {
+        name: "line",
+        icon: Minus,
+        color: "#EC4899",
+        label: "Line",
+        shortcut: "L",
+      },
+      {
+        name: "freedraw",
+        icon: Pencil,
+        color: "#F97316",
+        label: "Draw",
+        shortcut: "P",
+      },
+    ],
+  },
+  {
+    label: "Content",
+    tools: [
+      {
+        name: "text",
+        icon: Type,
+        color: "#6366F1",
+        label: "Text",
+        shortcut: "T",
+      },
+      {
+        name: "image",
+        icon: Image,
+        color: "#22C55E",
+        label: "Image",
+        shortcut: "I",
+      },
+      {
+        name: "eraser",
+        icon: Eraser,
+        color: "#F43F5E",
+        label: "Eraser",
+        shortcut: "E",
+      },
+    ],
+  },
 ];
 
 const NOTE_STYLES: Record<
   "sticky" | "glass" | "task",
-  { bg: string; border: string; badgeBg: string }
+  {
+    bg: string;
+    border: string;
+    badgeBg: string;
+    fold: string;
+    textColor: string;
+    placeholder: string;
+  }
 > = {
-  sticky: { bg: "#FFF7D6", border: "#F5C451", badgeBg: "#FFE6A3" },
-  glass: { bg: "#EFF6FF", border: "#93C5FD", badgeBg: "#DBEAFE" },
-  task: { bg: "#ECFDF5", border: "#6EE7B7", badgeBg: "#D1FAE5" },
+  sticky: {
+    bg: "#FFF7D6",
+    border: "#F5C451",
+    badgeBg: "#F59E0B",
+    fold: "#F5E08A",
+    textColor: "#7C4A03",
+    placeholder: "New idea...",
+  },
+  glass: {
+    bg: "#EFF6FF",
+    border: "#93C5FD",
+    badgeBg: "#4338CA",
+    fold: "#C7D2FE",
+    textColor: "#1D4ED8",
+    placeholder: "Meeting notes...",
+  },
+  task: {
+    bg: "#ECFDF5",
+    border: "#6EE7B7",
+    badgeBg: "#10B981",
+    fold: "#A7F3D0",
+    textColor: "#047857",
+    placeholder: "☐ Task item...",
+  },
 };
 
 // Bumps Excalidraw's internal versioning so external mutations are actually accepted
@@ -66,9 +181,156 @@ type Props = {
   onApiReady: (api: ExcalidrawImperativeAPI) => void;
   onSaveReady: (saveFn: () => void) => void;
   onSavingChange: (saving: boolean) => void;
+  showAISidebar: boolean;
+  onToggleAI: () => void;
 };
 
-function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
+function ToolButton({ tool, isActive, onClick, index }: any) {
+  const Icon = tool.icon;
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [tooltipPos, setTooltipPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+
+  const handleMouseEnter = () => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setTooltipPos({
+      top: rect.top + rect.height / 2,
+      left: rect.right + 10,
+    });
+  };
+
+  const handleMouseLeave = () => setTooltipPos(null);
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        onClick={onClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        style={{ animation: `fadeInUp 0.3s ease-out ${index * 0.03}s both` }}
+        className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl transition-transform duration-200 ease-out hover:scale-[1.12] active:scale-95"
+      >
+        {isActive && (
+          <span
+            className="absolute inset-0 rounded-xl transition-all duration-300"
+            style={{
+              backgroundColor: `${tool.color}16`,
+              boxShadow: `inset 0 0 0 1.5px ${tool.color}40`,
+            }}
+          />
+        )}
+        <Icon
+          size={17}
+          strokeWidth={isActive ? 2.6 : 2.2}
+          className="relative z-10 transition-colors duration-200"
+          style={{ color: isActive ? tool.color : "#6B7280" }}
+        />
+        {isActive && (
+          <span
+            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-white"
+            style={{
+              backgroundColor: tool.color,
+              animation: "glowPulse 2s ease-in-out infinite",
+            }}
+          />
+        )}
+      </button>
+
+      {tooltipPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[200] flex -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-lg"
+            style={{ top: tooltipPos.top, left: tooltipPos.left }}
+          >
+            {tool.label}
+            <kbd className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[10px]">
+              {tool.shortcut}
+            </kbd>
+            <div className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-gray-900" />
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+function ToolPalette({
+  activeTool,
+  changeTool,
+}: {
+  activeTool: string;
+  changeTool: (t: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  let flatIndex = 0;
+
+  return (
+    <div
+      className="absolute left-4 top-1/2 z-50 -translate-y-1/2 rounded-2xl border border-gray-100 bg-white/95 shadow-[0_12px_32px_rgba(15,23,42,0.1)] backdrop-blur-sm transition-all duration-300"
+      style={{ animation: "fadeInUp 0.4s ease-out both" }}
+    >
+      <div
+        className={`flex flex-col gap-1 p-1.5 transition-all duration-300 ${
+          collapsed ? "h-[48px] overflow-hidden" : "h-auto overflow-visible"
+        }`}
+      >
+        {TOOL_GROUPS.map((group, groupIndex) => (
+          <div key={group.label}>
+            {groupIndex > 0 && <div className="mx-1.5 my-1 h-px bg-gray-100" />}
+            <div className="flex flex-col gap-1">
+              {group.tools.map((tool) => {
+                const i = flatIndex++;
+                return (
+                  <ToolButton
+                    key={tool.name}
+                    tool={tool}
+                    isActive={activeTool === tool.name}
+                    onClick={() => changeTool(tool.name)}
+                    index={i}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex h-6 w-full cursor-pointer items-center justify-center overflow-hidden rounded-b-2xl border-t border-gray-50 text-gray-300 transition hover:bg-gray-50 hover:text-gray-500"
+      >
+        <svg
+          width="10"
+          height="6"
+          viewBox="0 0 10 6"
+          fill="none"
+          className="transition-transform duration-300"
+          style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          <path
+            d="M1 1L5 5L9 1"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function Whiteboard({
+  onApiReady,
+  onSaveReady,
+  onSavingChange,
+  showAISidebar,
+  onToggleAI,
+}: Props) {
   const { projectid } = useParams();
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
@@ -80,8 +342,8 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
   const [selectedElement, setSelectedElement] = useState<any>(null);
   const [canvasState, setCanvasState] = useState<any>(null);
   const [lockedElements, setLockedElements] = useState<any[]>([]);
-  const [showAISidebar, setShowAISidebar] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     selectedElementRef.current = selectedElement;
@@ -159,7 +421,7 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
         elements,
         appState,
         files,
-        base64ImagePreview
+        base64ImagePreview,
       });
       toast.add({ type: "success", title: "Changes Saved" });
     } catch (error) {
@@ -176,21 +438,21 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
   };
 
   const generatePreviewBase64 = async () => {
-    if (!excalidrawAPI) return null
+    if (!excalidrawAPI) return null;
 
-    const elements = excalidrawAPI.getSceneElements()
+    const elements = excalidrawAPI.getSceneElements();
 
-    if (!elements.length) return null
+    if (!elements.length) return null;
 
-    const appState = excalidrawAPI.getAppState()
-    const files = excalidrawAPI.getFiles()
+    const appState = excalidrawAPI.getAppState();
+    const files = excalidrawAPI.getFiles();
 
     const blob = await exportToBlob({
       elements,
       appState: {
         ...appState,
         exportBackground: true,
-        exportWithDarkMode: false
+        exportWithDarkMode: false,
       },
       files,
       mimeType: "image/webp",
@@ -198,23 +460,23 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
       getDimensions: () => ({
         width: 400,
         height: 225,
-        scale: 1
-      })
-    })
+        scale: 1,
+      }),
+    });
 
-    return await blobToBase64(blob)
-  }
+    return await blobToBase64(blob);
+  };
 
   const blobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
+      const reader = new FileReader();
 
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = reject
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
 
-      reader.readAsDataURL(blob)
-    })
-  }
+      reader.readAsDataURL(blob);
+    });
+  };
 
   const changeTool = (tool: any) => {
     if (!excalidrawAPI) return;
@@ -339,14 +601,29 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
   const addStickyElement = (type: "sticky" | "glass" | "task") => {
     if (!excalidrawAPI) return;
 
-    const { bg, border, badgeBg } = NOTE_STYLES[type];
-    const width = 260;
-    const height = 220;
+    const { bg, border, badgeBg, textColor, placeholder } = NOTE_STYLES[type];
+    const width = 240;
+    const height = 200;
     const position = getNextPlacementPosition(width, height);
-
     const noteId = `note-${Date.now()}`;
 
     const noteElements = convertToExcalidrawElements([
+      // Soft drop shadow behind the note
+      {
+        id: `${noteId}-shadow`,
+        type: "rectangle",
+        x: position.x + 4,
+        y: position.y + 6,
+        width,
+        height,
+        backgroundColor: "#00000010",
+        strokeColor: "transparent",
+        fillStyle: "solid",
+        roughness: 0,
+        roundness: { type: 3 },
+      },
+      // Main note body — label is a separate bound text with explicit padding
+      // from the top-left, instead of relying on default container padding
       {
         id: noteId,
         type: "rectangle",
@@ -361,13 +638,27 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
         roughness: 0,
         roundness: { type: 3 },
       },
+      // Text placed as its own element, inset well clear of the rounded corner —
+      // more reliable than a bound label's default padding
       {
-        id: `${noteId}-badge`,
+        id: `${noteId}-text`,
+        type: "text",
+        x: position.x + 20,
+        y: position.y + 22,
+        text: placeholder,
+        fontSize: 15,
+        strokeColor: textColor,
+        textAlign: "left",
+      },
+      // Small rounded tab/marker in the top-right — sits inside the note's
+      // bounds with its own inset, rather than a dot that felt disconnected
+      {
+        id: `${noteId}-tab`,
         type: "rectangle",
-        x: position.x + 24,
-        y: position.y + 24,
-        width: 90,
-        height: 32,
+        x: position.x + width - 44,
+        y: position.y + 14,
+        width: 28,
+        height: 10,
         backgroundColor: badgeBg,
         strokeColor: "transparent",
         fillStyle: "solid",
@@ -478,23 +769,7 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
         onChange={handleCanvasChange}
       />
 
-      <div className="absolute left-4 top-1/2 z-50 -translate-y-1/2 flex flex-col gap-1 rounded-2xl bg-white border p-1.5 shadow-xl">
-        {tools.map((tool) => {
-          const Icon = tool.icon;
-          return (
-            <button
-              key={tool.name}
-              onClick={() => changeTool(tool.name)}
-              className={`flex h-9 w-9 items-center justify-center rounded-xl transition 
-                hover:bg-primary/10 hover:cursor-pointer
-                ${activeTool === tool.name ? "bg-primary/10" : null}
-              `}
-            >
-              <Icon size={17} strokeWidth={3} className={tool.color} />
-            </button>
-          );
-        })}
-      </div>
+      <ToolPalette activeTool={activeTool} changeTool={changeTool} />
 
       <FloatingProperties
         selectedElement={selectedElement}
@@ -516,38 +791,34 @@ function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
               key={el.id}
               onClick={() => setSelectedElement(el)}
               title="Locked — click to unlock"
-              className="absolute z-[90] flex h-7 w-7 items-center justify-center rounded-full border bg-white shadow-md hover:bg-slate-50"
+              className="absolute z-[90] flex h-7 w-7 items-center justify-center rounded-full border border-gray-100 bg-white shadow-md transition hover:scale-110 hover:shadow-lg cursor-pointer"
               style={{ left: pos.left - 14, top: pos.top - 14 }}
             >
-              <Lock size={13} className="text-slate-500" />
+              <Lock size={13} className="text-[#4338CA]" />
             </button>
           );
         })}
-
-      <div className="absolute right-15 bottom-6 z-50">
-        <Button
-          className="cursor-pointer"
-          size="lg"
-          onClick={() => setShowAISidebar(!showAISidebar)}
-        >
-          <Sparkles /> AI
-        </Button>
-      </div>
 
       <FloatingActionBar
         onAddNote={addStickyElement}
         onAddEmoji={addEmojiElement}
         onAddIcon={addIconElement}
         showAISidebar={showAISidebar}
-        onToggleAI={() => setShowAISidebar((prev) => !prev)}
+        onToggleAI={onToggleAI}
       />
 
       {showAISidebar && (
-        <AIFloatingSidebar
-          excalidrawApi={excalidrawAPI}
-          onClose={() => setShowAISidebar(!showAISidebar)}
-        />
+        <AIFloatingSidebar excalidrawApi={excalidrawAPI} onClose={onToggleAI} />
       )}
+
+      <button
+  onClick={() => setHelpOpen(true)}
+  className="absolute bottom-6 right-6 z-50 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-gray-100 bg-white text-gray-400 shadow-[0_8px_20px_rgba(15,23,42,0.1)] transition hover:scale-105 hover:text-[#4338CA]"
+>
+  <HelpCircle size={18} />
+</button>
+
+<HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }

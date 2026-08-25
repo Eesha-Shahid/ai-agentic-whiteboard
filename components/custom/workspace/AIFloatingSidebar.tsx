@@ -26,7 +26,7 @@ type Props = {
 const AiTools = [
   {
     name: "Generate Diagrams",
-    desc: "Generate Diagrams in seconds",
+    desc: "Turn ideas into structured diagrams",
     icon: PencilRuler,
     color: "blue",
     prompt: `
@@ -52,7 +52,7 @@ const AiTools = [
   },
   {
     name: "Flowchart",
-    desc: "Turn ideas into visual workflows",
+    desc: "Map out steps, decisions, and branches",
     icon: Workflow,
     color: "purple",
     prompt: `
@@ -80,7 +80,7 @@ const AiTools = [
   },
   {
     name: "Architecture",
-    desc: "Generate system architecture diagrams",
+    desc: "Visualize systems and data flow",
     icon: Network,
     color: "orange",
     prompt: `
@@ -109,7 +109,7 @@ const AiTools = [
   },
   {
     name: "Web Mockup",
-    desc: "Generate website wireframes and layouts",
+    desc: "Sketch website layouts and pages",
     icon: Monitor,
     color: "cyan",
     prompt: `
@@ -150,7 +150,7 @@ const AiTools = [
   },
   {
     name: "Mobile Mockup",
-    desc: "Generate mobile app wireframes",
+    desc: "Design mobile app screens",
     icon: Smartphone,
     color: "pink",
     prompt: `
@@ -189,6 +189,23 @@ const AiTools = [
   },
 ];
 
+const SUGGESTIONS: Record<string, string[]> = {
+  "Generate Diagrams": [
+    "Compare remote vs office work",
+    "Explain the water cycle",
+  ],
+  Flowchart: [
+    "User login and password reset flow",
+    "Order fulfillment process",
+  ],
+  Architecture: [
+    "SaaS app with Next.js and Postgres",
+    "Microservices with a message queue",
+  ],
+  "Web Mockup": ["SaaS pricing page", "Admin dashboard with sidebar"],
+  "Mobile Mockup": ["Food delivery home screen", "Fitness app workout tracker"],
+};
+
 const AI_PLACEHOLDER_IDS = {
   container: "ai-placeholder-container",
   title: "ai-placeholder-title",
@@ -205,11 +222,11 @@ function AIFloatingSidebar({ excalidrawApi, onClose }: Props) {
   const placeholderPositionRef = useRef<{ x: number; y: number } | null>(null);
 
   const COLOR_STYLES: Record<string, string> = {
-    blue: "bg-blue-50 text-blue-600",
-    purple: "bg-purple-50 text-purple-600",
-    orange: "bg-orange-50 text-orange-600",
-    cyan: "bg-cyan-50 text-cyan-600",
-    pink: "bg-pink-50 text-pink-600",
+    blue: "bg-[#EEF2FF] text-[#4338CA]",
+    purple: "bg-[#EEF2FF] text-[#4338CA]",
+    orange: "bg-[#FFF1F2] text-[#FB7185]",
+    cyan: "bg-[#EEF2FF] text-[#4338CA]",
+    pink: "bg-[#FFF1F2] text-[#FB7185]",
   };
 
   const getEmptyCanvasPosition = () => {
@@ -601,123 +618,183 @@ function AIFloatingSidebar({ excalidrawApi, onClose }: Props) {
     placeholderPositionRef.current = null;
   };
 
+  const currentTool = AiTools.find((t) => t.name === selectedTool);
+  const charLimit = 500;
+
   return (
     <>
-      <div className="absolute right-6 bottom-20 z-[100] w-[420px] overflow-hidden rounded-2xl border border-gray-200/80 bg-white/95 backdrop-blur-xl shadow-2xl">
-        <div className="border-b border-gray-100 bg-gradient-to-br from-violet-50/80 via-white to-blue-50/70 px-5 py-4">
-          <div className="flex items-start justify-between">
+      <div
+        className="fixed inset-0 z-[95] bg-black/10 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div className="absolute right-6 bottom-20 z-[100] w-[420px] overflow-hidden rounded-2xl border border-gray-100 bg-white/95 shadow-[0_24px_64px_rgba(67,56,202,0.2)] backdrop-blur-xl">
+        {/* Header */}
+        <div className="relative overflow-hidden border-b border-gray-100 bg-gradient-to-br from-[#EEF2FF] via-white to-[#FFF1F2] px-5 py-4">
+          <div
+            className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#818CF8]/15 blur-2xl"
+            style={{ animation: "floatSlow 6s ease-in-out infinite" }}
+          />
+          <div
+            className="relative z-10 flex items-start justify-between"
+            style={{ animation: "fadeInUp 0.35s ease-out both" }}
+          >
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-blue-600 text-white shadow-sm">
-                <Sparkles />
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#4338CA] to-[#6366F1] text-white shadow-[0_6px_16px_rgba(67,56,202,0.35)]">
+                {isGenerating && (
+                  <span className="absolute inset-0 animate-ping rounded-xl bg-[#4338CA]/40" />
+                )}
+                <Sparkles size={18} className="relative z-10" />
               </div>
               <div>
                 <h2 className="text-[17px] font-semibold text-gray-900">
                   AI Helper
                 </h2>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  Turn your ideas into visual content
+                  {isGenerating
+                    ? "Working on your diagram..."
+                    : "Turn your ideas into visual content"}
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 cursor-pointer">
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition hover:bg-white hover:text-gray-700"
+            >
               <X size={17} strokeWidth={2} />
             </button>
           </div>
         </div>
 
         <div className="p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              What do you want to create?
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {AiTools.map((tool, index) => {
+          {/* Tool grid — compact icon row, description reveals on hover/select */}
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
+            What do you want to create?
+          </h3>
+          <div className="flex gap-2">
+            {AiTools.map((tool, i) => {
               const Icon = tool.icon as unknown as LucideIcon;
               const isSelected = selectedTool === tool.name;
-
               return (
                 <button
-                  key={index}
+                  key={tool.name}
                   onClick={() => setSelectedTool(tool.name)}
-                  className={`group relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 cursor-pointer shadow-xs
-                ${
-                  isSelected
-                    ? `border-violet-300 bg-violet-50/70`
-                    : `border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm`
-                }`}
+                  title={tool.name}
+                  style={{
+                    animation: `fadeInUp 0.3s ease-out ${i * 0.04}s both`,
+                  }}
+                  className={`group relative flex h-12 flex-1 cursor-pointer items-center justify-center rounded-xl border transition-all duration-200 ${
+                    isSelected
+                      ? "border-transparent bg-gradient-to-br from-[#4338CA] to-[#6366F1] text-white shadow-[0_6px_16px_rgba(67,56,202,0.3)]"
+                      : "border-gray-100 bg-white text-gray-400 hover:border-gray-200 hover:text-gray-600"
+                  }`}
                 >
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${COLOR_STYLES[tool.color]}`}
-                  >
-                    <Icon size={18} strokeWidth={2} />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="truncate text-sm font-medium text-gray-800">
-                      {tool.name}
-                    </h2>
-                    <h2 className="mt-0.5 truncate text-[11px] text-gray-400">
-                      {tool.desc}
-                    </h2>
-                  </div>
-                  {isSelected && (
-                    <div className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-violet-600" />
-                  )}
+                  <Icon
+                    size={18}
+                    strokeWidth={2}
+                    className={
+                      isSelected
+                        ? "scale-110 transition-transform"
+                        : "transition-transform group-hover:scale-110"
+                    }
+                  />
                 </button>
               );
             })}
           </div>
-          <div className="my-5 h-px bg-gray-100"></div>
+
+          {/* Selected tool's name + description, swaps in below the row */}
+          {currentTool && (
+            <div
+              key={currentTool.name}
+              className="mt-3 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2"
+              style={{ animation: "fadeInUp 0.2s ease-out both" }}
+            >
+              <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-gradient-to-br from-[#4338CA] to-[#6366F1]" />
+              <div className="min-w-0">
+                <span className="text-xs font-medium text-gray-700">
+                  {currentTool.name}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {" "}
+                  — {currentTool.desc}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="my-5 h-px bg-gray-100" />
+
+          {/* Input area */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-gray-800">
-                  Describe your idea
-                </h3>
-                <p className="mt-0.5 text-xs text-gray-400">
-                  AI will generate it directly on your canvas
-                </p>
-              </div>
+              <h3 className="text-sm font-medium text-gray-800">
+                Describe your idea
+              </h3>
               <WandSparkles
                 size={17}
                 strokeWidth={2}
-                className="text-violet-500"
+                className="text-[#4338CA]"
               />
             </div>
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50/70 transition focus-within:border-violet-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-violet-100">
+
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50/70 transition focus-within:border-[#4338CA]/30 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#4338CA]/10">
               <Textarea
                 placeholder="E.g. Create a customer onboarding flow with signup, email verification and subscription decision..."
-                className="min-h-[110px] resize-none border-0 bg-transparent px-4 py-3 text-sm shadow-none outline-none focus-visible:ring-0"
+                className="min-h-[100px] resize-none border-0 bg-transparent px-4 py-3 text-sm shadow-none outline-none focus-visible:ring-0"
+                value={userInput}
+                maxLength={charLimit}
                 onChange={(event) => setUserInput(event.target.value)}
               />
               <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
-                <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-gray-500 shadow-sm ring-1 ring-gray-200">
-                  {selectedTool}
+                <span
+                  className={`text-[11px] ${userInput.length > charLimit - 40 ? "text-amber-500" : "text-gray-300"}`}
+                >
+                  {userInput.length}/{charLimit}
                 </span>
                 <Button
                   onClick={onClickGenerate}
-                  className="h-8 gap-1.5 rounded-lg bg-gray-900 px-3 text-xs text-white hover:bg-gray-800 cursor-pointer"
+                  disabled={isGenerating || !userInput.trim()}
+                  className="h-8 cursor-pointer gap-1.5 rounded-lg border-0 bg-gradient-to-r from-[#4338CA] to-[#6366F1] px-3 text-xs text-white shadow-[0_4px_12px_rgba(67,56,202,0.3)] transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                 >
                   {isGenerating ? (
                     <>
-                      <Loader2Icon className="animate-spin" />
+                      <Loader2Icon size={13} className="animate-spin" />
                       <span>Generating...</span>
                     </>
                   ) : (
                     <>
                       <span>Generate</span>
-                      <ArrowUp size={14} strokeWidth={2} />
+                      <ArrowUp size={13} strokeWidth={2} />
                     </>
-                  )}{" "}
+                  )}
                 </Button>
               </div>
             </div>
+
+            {/* Suggestion chips — quick-fill prompts specific to the selected tool */}
+            {!userInput && SUGGESTIONS[selectedTool] && (
+              <div
+                className="mt-2.5 flex flex-wrap gap-1.5"
+                style={{ animation: "fadeInUp 0.25s ease-out both" }}
+              >
+                {SUGGESTIONS[selectedTool].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => setUserInput(suggestion)}
+                    className="cursor-pointer rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] text-gray-500 transition hover:border-[#4338CA]/30 hover:bg-[#EEF2FF] hover:text-[#4338CA]"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
           <div className="mt-3 flex items-center justify-between">
             <p className="text-[11px] text-gray-400">
               AI generated content can be edited afterwards
             </p>
-            <div className="flex items-center gap-1 text-[11px] text-gray-400">
+            <div className="flex items-center gap-1 text-[11px] text-[#4338CA]">
               <Sparkles size={11} strokeWidth={2} />
               AI
             </div>

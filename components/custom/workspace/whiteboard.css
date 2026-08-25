@@ -1,3 +1,9 @@
 .excalidraw .App-menu__left, .excalidraw .App-toolbar, .excalidraw .App-menu_top {
   display: none !important;
 }
+
+.excalidraw .help-icon,
+.excalidraw button[aria-label="Help"],
+.excalidraw .HelpDialog {
+  display: none !important;
+}
