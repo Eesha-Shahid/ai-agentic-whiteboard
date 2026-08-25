@@ -20,13 +20,13 @@ import {
   Square,
   Type,
 } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 import { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import FloatingProperties from "./FloatingProperties";
 import { Button } from "@/components/ui/button";
 import AIFloatingSidebar from "./AIFloatingSidebar";
 import FloatingActionBar from "./FloatingActionBar";
-
 import { renderToStaticMarkup } from "react-dom/server";
 import type { LucideIcon } from "lucide-react";
 
@@ -116,11 +116,11 @@ function Whiteboard({ onApiReady }: Props) {
 
       if (saveTimeRef.current) clearTimeout(saveTimeRef.current);
       saveTimeRef.current = setTimeout(() => {
-        // SaveCanvasChanges(elements, appState, files);
-        // toast.add({
-        //   type: "success",
-        //   title: "Changes Saved"
-        // })
+        SaveCanvasChanges(elements, appState, files);
+        toast.add({
+          type: "success",
+          title: "Changes Saved"
+        })
       }, 10000);
     },
     [],

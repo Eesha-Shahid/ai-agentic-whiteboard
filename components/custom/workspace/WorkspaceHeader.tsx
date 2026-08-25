@@ -5,16 +5,17 @@ import { DownloadIcon, Save, Share } from "lucide-react";
 import Image from "next/image";
 
 type Props = {
+  projectName: string;
   selectedTab: (value: "whiteboard" | "doc") => void;
   onExport: any;
 };
 
-function WorkspaceHeader({ selectedTab, onExport }: Props) {
+function WorkspaceHeader({ projectName, selectedTab, onExport }: Props) {
   return (
     <div className="p-3 border-b flex justify-between">
       <div className="flex gap-2 items-center">
         <Image src="/logo.svg" alt="Logo" width={35} height={35} />
-        <h2>Workspace Name</h2>
+        <h2>{projectName}</h2>
       </div>
 
       {/* Switch */}

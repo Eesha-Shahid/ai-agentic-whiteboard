@@ -1,3 +1,50 @@
+- Created get request in route api/projects/route.ts
+
+```tsx
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams;
+  const projectId = searchParams.get("projectId");
+
+  const user = await currentUser();
+  const userEmail = user?.primaryEmailAddress?.emailAddress;
+
+  if (!userEmail) {
+    return NextResponse.json({ error: "Unauthorized User" }, { status: 401 });
+  }
+
+  if (!projectId) {
+    return NextResponse.json(
+      { error: "Project Information missing!" },
+      { status: 400 },
+    );
+  }
+
+  const userProject = await db
+    .select()
+    .from(projects)
+    .where(
+      and(eq(projects.projectId, projectId), eq(projects.userEmail, userEmail)),
+    );
+
+  if (userProject.length === 0) {
+    return NextResponse.json({ error: "Unauthorized User" }, { status: 401 });
+  }
+
+  const result = await db
+    .select()
+    .from(WhiteboardData)
+    .where(eq(WhiteboardData.projectId, projectId));
+  return NextResponse.json({
+    ...result[0],
+    projectName: userProject[0].projectName,
+  });
+}
+
+```
+
+- Integrated it in the workspace/[projectid]/page.tsx page
+
+```tsx
 "use client";
 import SmartDoc from "@/components/custom/workspace/SmartDoc";
 import WorkspaceHeader from "@/components/custom/workspace/WorkspaceHeader";
@@ -129,3 +176,64 @@ function Workspace() {
 }
 
 export default Workspace;
+
+```
+
+- Also pass project name in the header.
+
+```tsx
+"use client";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DownloadIcon, Save, Share } from "lucide-react";
+import Image from "next/image";
+
+type Props = {
+  projectName: string;
+  selectedTab: (value: "whiteboard" | "doc") => void;
+  onExport: any;
+};
+
+function WorkspaceHeader({ projectName, selectedTab, onExport }: Props) {
+  return (
+    <div className="p-3 border-b flex justify-between">
+      <div className="flex gap-2 items-center">
+        <Image src="/logo.svg" alt="Logo" width={35} height={35} />
+        <h2>{projectName}</h2>
+      </div>
+
+      {/* Switch */}
+      <div>
+        <Tabs
+          defaultValue="whiteboard"
+          onValueChange={(value) => selectedTab(value)}
+        >
+          <TabsList>
+            <TabsTrigger value="whiteboard">Whiteboard</TabsTrigger>
+            <TabsTrigger value="doc">Doc</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Extra Button */}
+      <div className="flex gap-2">
+        <Button className="cursor-pointer">
+          <Save />
+          Save
+        </Button>
+        <Button className="cursor-pointer" variant="outline">
+          <Share />
+          Share
+        </Button>
+        <Button className="cursor-pointer" onClick={onExport}>
+          <DownloadIcon />
+          Export
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default WorkspaceHeader;
+
+```
