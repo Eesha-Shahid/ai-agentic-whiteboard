@@ -10,6 +10,7 @@ import { useParams } from "next/navigation";
 import { toast } from "@/components/ui/toast";
 import ExportDialog from "@/components/custom/workspace/ExportDialog";
 import ShareDialog from "@/components/custom/workspace/SharedDialog";
+import { useUser } from "@clerk/nextjs";
 
 const Whiteboard = dynamic(
   () => import("@/components/custom/workspace/Whiteboard"),
@@ -48,6 +49,7 @@ const normalizeAppState = (savedAppState: any) => {
 };
 
 function Workspace() {
+  const { user } = useUser();
   const { projectid } = useParams();
   const [activeTab, setActiveTab] = useState<"whiteboard" | "doc">(
     "whiteboard",
@@ -59,6 +61,7 @@ function Workspace() {
   const [exportOpen, setExportOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
     setApi(api);
@@ -97,6 +100,9 @@ function Workspace() {
       const result = await axios.get("/api/projects?projectId=" + projectid);
 
       setProjectName(result.data.projectName);
+      setIsOwner(
+        result.data.userEmail === user?.primaryEmailAddress?.emailAddress,
+      );
 
       api?.updateScene({
         elements: result.data.elements || [],
@@ -117,15 +123,31 @@ function Workspace() {
     }
   };
 
+  const handleRename = async (newName: string) => {
+    try {
+      await axios.patch("/api/projects", {
+        projectId: projectid,
+        projectName: newName,
+      });
+      setProjectName(newName);
+      toast.add({ type: "success", title: "Board renamed" });
+    } catch (error) {
+      toast.add({ type: "error", title: "Failed to rename board" });
+      throw error; // re-throw so WorkspaceHeader's isRenaming/finally logic behaves correctly
+    }
+  };
+
   return (
     <div>
       <WorkspaceHeader
         projectName={projectName}
         selectedTab={(value) => setActiveTab(value)}
-        onOpenExport={openExport}
+        onExport={() => openExport()}
         onSave={() => manualSave?.()}
-        isSaving={isSaving}
         onOpenShare={openShare}
+        onRename={handleRename}
+        isSaving={isSaving}
+        isOwner={isOwner}
       />
       {activeTab === "whiteboard" ? (
         <Whiteboard

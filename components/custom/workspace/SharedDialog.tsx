@@ -10,7 +10,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
-import { Check, Copy, Globe, Loader2, Mail, Share2, Trash2, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Globe,
+  Loader2,
+  Mail,
+  Share2,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 
 type Props = {
   projectId: string;
@@ -40,6 +51,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 function ShareDialog({ projectId, open, onOpenChange }: Props) {
+  const { user } = useUser();
   const [isPublic, setIsPublic] = useState(false);
   const [publicRole, setPublicRole] = useState<"view" | "edit">("view");
   const [copied, setCopied] = useState(false);
@@ -48,10 +60,9 @@ function ShareDialog({ projectId, open, onOpenChange }: Props) {
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("viewer");
   const [isInviting, setIsInviting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
 
-  const shareUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/view/${projectId}?mode=${publicRole}`
-    : "";
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/view/${projectId}?mode=${publicRole}` : "";
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +79,7 @@ function ShareDialog({ projectId, open, onOpenChange }: Props) {
       setIsPublic(!!projectRes.data.isPublic);
       setPublicRole(projectRes.data.publicRole || "view");
       setCollaborators(collabRes.data || []);
+      setIsOwner(projectRes.data.userEmail === user?.primaryEmailAddress?.emailAddress);
     } catch (error) {
       console.error("Failed to load sharing info:", error);
     } finally {
@@ -139,14 +151,12 @@ function ShareDialog({ projectId, open, onOpenChange }: Props) {
       <DialogContent showCloseButton={false} className="overflow-hidden p-0 sm:max-w-md">
         <div className="relative overflow-hidden bg-gradient-to-br from-[#EEF2FF] via-white to-[#FFF1F2] px-6 pb-5 pt-6">
           <div className="pointer-events-none absolute -right-16 -top-10 h-32 w-32 rounded-full bg-[#818CF8]/15 blur-2xl" />
-
           <button
             onClick={() => onOpenChange(false)}
             className="absolute right-4 top-4 z-20 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg bg-white/80 text-gray-400 shadow-sm backdrop-blur-sm transition hover:bg-white hover:text-gray-700"
           >
             <X size={16} />
           </button>
-
           <DialogHeader className="relative z-10">
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#4338CA] to-[#6366F1] shadow-[0_8px_20px_rgba(67,56,202,0.3)]">
               <Share2 size={20} className="text-white" />
@@ -161,7 +171,7 @@ function ShareDialog({ projectId, open, onOpenChange }: Props) {
             <div className="flex items-center justify-center py-8">
               <Loader2 size={20} className="animate-spin text-gray-300" />
             </div>
-          ) : (
+          ) : isOwner ? (
             <>
               {/* Public link */}
               <div className="rounded-xl border border-gray-100 p-3.5">
@@ -181,11 +191,7 @@ function ShareDialog({ projectId, open, onOpenChange }: Props) {
                 {isPublic && (
                   <div className="mt-3 space-y-2.5" style={{ animation: "fadeInUp 0.2s ease-out both" }}>
                     <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-1">
-                      <input
-                        readOnly
-                        value={shareUrl}
-                        className="h-8 flex-1 truncate bg-transparent px-2 text-xs text-gray-600 outline-none"
-                      />
+                      <input readOnly value={shareUrl} className="h-8 flex-1 truncate bg-transparent px-2 text-xs text-gray-600 outline-none" />
                       <button
                         onClick={handleCopyLink}
                         className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md bg-white px-2.5 text-xs font-medium text-gray-600 shadow-sm transition hover:text-[#4338CA]"
@@ -273,6 +279,35 @@ function ShareDialog({ projectId, open, onOpenChange }: Props) {
                 </div>
               )}
             </>
+          ) : (
+            <div>
+              <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <Users size={12} />
+                People with access
+              </label>
+              {collaborators.length === 0 ? (
+                <p className="rounded-xl border border-gray-100 p-4 text-center text-xs text-gray-400">
+                  You're the only one with access besides the owner.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {collaborators.map((c) => (
+                    <div key={c.userEmail} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#818CF8] to-[#4338CA] text-[10px] font-semibold text-white">
+                          {c.userEmail.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-xs text-gray-700">{c.userEmail}</span>
+                      </div>
+                      <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500">{c.role}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-4 rounded-xl bg-gray-50 p-3.5 text-xs text-gray-500">
+                Only the board owner can invite people or manage the public link.
+              </p>
+            </div>
           )}
         </div>
       </DialogContent>

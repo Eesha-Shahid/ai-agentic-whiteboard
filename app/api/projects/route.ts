@@ -1,4 +1,4 @@
-import { db, projects, WhiteboardData, users } from "@/db";
+import { db, projects, WhiteboardData, users, collaborators } from "@/db";
 import { and, eq } from "drizzle-orm";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -85,12 +85,30 @@ export async function GET(req: NextRequest) {
   const userProject = await db
     .select()
     .from(projects)
-    .where(
-      and(eq(projects.projectId, projectId), eq(projects.userEmail, userEmail)),
-    );
+    .where(and(eq(projects.projectId, projectId)));
 
   if (userProject.length === 0) {
     return NextResponse.json({ error: "Unauthorized User" }, { status: 401 });
+  }
+
+  const project = userProject[0];
+  const isOwner = project.userEmail === userEmail;
+
+  // Not the owner — check if they're an invited collaborator instead
+  if (!isOwner) {
+    const collaboratorCheck = await db
+      .select()
+      .from(collaborators)
+      .where(
+        and(
+          eq(collaborators.projectId, projectId),
+          eq(collaborators.userEmail, userEmail),
+        ),
+      );
+
+    if (collaboratorCheck.length === 0) {
+      return NextResponse.json({ error: "Unauthorized User" }, { status: 401 });
+    }
   }
 
   const result = await db
@@ -101,11 +119,13 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ...result[0],
     projectName: userProject[0].projectName,
+    userEmail: userProject[0].userEmail,
   });
 }
 
 export async function PATCH(req: NextRequest) {
-  const { projectId, archived, isPublic, publicRole } = await req.json();
+  const { projectId, archived, isPublic, publicRole, projectName } =
+    await req.json();
   const user = await currentUser();
   const userEmail = user?.primaryEmailAddress?.emailAddress;
 
@@ -119,15 +139,18 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  // Only touch fields that were actually sent, so a call to toggle
-  // archived doesn't accidentally reset isPublic/publicRole, and vice versa
   const updates: Record<string, any> = {};
   if (typeof archived === "boolean") updates.archived = archived;
   if (typeof isPublic === "boolean") updates.isPublic = isPublic;
   if (typeof publicRole === "string") updates.publicRole = publicRole;
+  if (typeof projectName === "string" && projectName.trim())
+    updates.projectName = projectName.trim();
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No valid fields to update" },
+      { status: 400 },
+    );
   }
 
   const result = await db

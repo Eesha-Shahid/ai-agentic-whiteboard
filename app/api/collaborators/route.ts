@@ -15,11 +15,25 @@ export async function GET(req: NextRequest) {
   }
 
   if (projectId) {
-    // Only the project owner can see the full collaborator list
     const project = await db.select().from(projects).where(eq(projects.projectId, projectId));
-    if (project.length === 0 || project[0].userEmail !== userEmail) {
+    if (project.length === 0) {
       return NextResponse.json({ error: "Unauthorized User" }, { status: 401 });
     }
+
+    const isOwner = project[0].userEmail === userEmail;
+
+    if (!isOwner) {
+      // Not the owner — must at least be a collaborator to view the list
+      const selfCheck = await db
+        .select()
+        .from(collaborators)
+        .where(and(eq(collaborators.projectId, projectId), eq(collaborators.userEmail, userEmail)));
+
+      if (selfCheck.length === 0) {
+        return NextResponse.json({ error: "Unauthorized User" }, { status: 401 });
+      }
+    }
+
     const result = await db.select().from(collaborators).where(eq(collaborators.projectId, projectId));
     return NextResponse.json(result);
   }
