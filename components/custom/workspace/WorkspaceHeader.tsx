@@ -1,16 +1,24 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DownloadIcon, Save, Share } from "lucide-react";
+import { DownloadIcon, Loader2, Save, Share } from "lucide-react";
 import Image from "next/image";
 
 type Props = {
   projectName: string;
   selectedTab: (value: "whiteboard" | "doc") => void;
-  onExport: any;
+  onExport: () => void;
+  onSave: () => void;
+  isSaving: boolean;
 };
 
-function WorkspaceHeader({ projectName, selectedTab, onExport }: Props) {
+function WorkspaceHeader({
+  projectName,
+  selectedTab,
+  onExport,
+  onSave,
+  isSaving,
+}: Props) {
   return (
     <div className="p-3 border-b flex justify-between">
       <div className="flex gap-2 items-center">
@@ -33,9 +41,18 @@ function WorkspaceHeader({ projectName, selectedTab, onExport }: Props) {
 
       {/* Extra Button */}
       <div className="flex gap-2">
-        <Button className="cursor-pointer">
-          <Save />
-          Save
+        <Button className="cursor-pointer" onClick={onSave} disabled={isSaving}>
+          {isSaving ? (
+            <>
+              <Loader2 className="animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save />
+              Save
+            </>
+          )}
         </Button>
         <Button className="cursor-pointer" variant="outline">
           <Share />

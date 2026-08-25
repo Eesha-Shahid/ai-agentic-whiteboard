@@ -52,9 +52,19 @@ function Workspace() {
   );
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const [projectName, setProjectName] = useState<string>("");
+  const [manualSave, setManualSave] = useState<(() => void) | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleApiReady = useCallback((api: ExcalidrawImperativeAPI) => {
     setApi(api);
+  }, []);
+
+  const handleSaveReady = useCallback((saveFn: () => void) => {
+    setManualSave(() => saveFn);
+  }, []);
+
+  const handleSavingChange = useCallback((saving: boolean) => {
+    setIsSaving(saving);
   }, []);
 
   useEffect(() => {
@@ -64,18 +74,17 @@ function Workspace() {
   const GetWhiteboardData = async () => {
     try {
       const result = await axios.get("/api/projects?projectId=" + projectid);
-      
+
       setProjectName(result.data.projectName);
 
       api?.updateScene({
         elements: result.data.elements || [],
-        appState: normalizeAppState(result.data.appState)
-      })
+        appState: normalizeAppState(result.data.appState),
+      });
 
       if (result.data.files) {
-        api?.addFiles( Object.values(result.data.files))
+        api?.addFiles(Object.values(result.data.files));
       }
-
     } catch (error) {
       console.error("Failed to load whiteboard: ", error);
       toast.add({
@@ -118,9 +127,15 @@ function Workspace() {
         projectName={projectName}
         selectedTab={(value) => setActiveTab(value)}
         onExport={() => handleExportImage()}
+        onSave={() => manualSave?.()}
+        isSaving={isSaving}
       />
       {activeTab === "whiteboard" ? (
-        <Whiteboard onApiReady={handleApiReady} />
+        <Whiteboard
+          onApiReady={handleApiReady}
+          onSaveReady={handleSaveReady}
+          onSavingChange={handleSavingChange}
+        />
       ) : (
         <SmartDoc />
       )}

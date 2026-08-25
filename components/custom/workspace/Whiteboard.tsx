@@ -64,9 +64,11 @@ const bumpElement = (el: any, patch: Record<string, any>) => ({
 
 type Props = {
   onApiReady: (api: ExcalidrawImperativeAPI) => void;
+  onSaveReady: (saveFn: () => void) => void;
+  onSavingChange: (saving: boolean) => void;
 };
 
-function Whiteboard({ onApiReady }: Props) {
+function Whiteboard({ onApiReady, onSaveReady, onSavingChange }: Props) {
   const { projectid } = useParams();
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
@@ -79,10 +81,15 @@ function Whiteboard({ onApiReady }: Props) {
   const [canvasState, setCanvasState] = useState<any>(null);
   const [lockedElements, setLockedElements] = useState<any[]>([]);
   const [showAISidebar, setShowAISidebar] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     selectedElementRef.current = selectedElement;
   }, [selectedElement]);
+
+  useEffect(() => {
+    onSavingChange(isSaving);
+  }, [isSaving]);
 
   const handleExcalidrawAPI = useCallback(
     (api: ExcalidrawImperativeAPI) => {
@@ -91,6 +98,19 @@ function Whiteboard({ onApiReady }: Props) {
     },
     [onApiReady],
   );
+
+  useEffect(() => {
+    if (!excalidrawAPI) return;
+
+    const manualSave = () => {
+      const elements = excalidrawAPI.getSceneElements();
+      const appState = excalidrawAPI.getAppState();
+      const files = excalidrawAPI.getFiles();
+      SaveCanvasChanges(elements, appState, files);
+    };
+
+    onSaveReady(manualSave);
+  }, [excalidrawAPI]);
 
   const handleCanvasChange = useCallback(
     (elements: readonly any[], appState: any, files: any) => {
@@ -116,11 +136,11 @@ function Whiteboard({ onApiReady }: Props) {
 
       if (saveTimeRef.current) clearTimeout(saveTimeRef.current);
       saveTimeRef.current = setTimeout(() => {
-        SaveCanvasChanges(elements, appState, files);
-        toast.add({
-          type: "success",
-          title: "Changes Saved"
-        })
+        // SaveCanvasChanges(elements, appState, files);
+        // toast.add({
+        //   type: "success",
+        //   title: "Changes Saved"
+        // })
       }, 10000);
     },
     [],
@@ -131,12 +151,26 @@ function Whiteboard({ onApiReady }: Props) {
     appState: any,
     files: any,
   ) => {
-    const result = await axios.post("/api/whiteboard", {
-      projectId: projectid,
-      elements: elements,
-      appState: appState,
-      files: files,
-    });
+    setIsSaving(true);
+    try {
+      await axios.post("/api/whiteboard", {
+        projectId: projectid,
+        elements,
+        appState,
+        files,
+      });
+      toast.add({ type: "success", title: "Changes Saved" });
+    } catch (error) {
+      console.error("Failed to save whiteboard:", error);
+      toast.add({
+        type: "error",
+        title: "Failed to save changes",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const changeTool = (tool: any) => {
